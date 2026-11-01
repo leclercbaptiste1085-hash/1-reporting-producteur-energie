@@ -93,9 +93,33 @@ Outils : Python 3 (bibliothèque standard uniquement), PostgreSQL 16.
 - **Le budget est construit pour l'exercice** à partir de moyennes historiques. Ce n'est pas un budget d'entreprise réel.
 - **Les revenus sont valorisés au prix spot**, sans contrat d'achat (PPA), ni complément de rémunération, ni coûts d'équilibrage.
 
-## Suite
+## Tableau de bord Power BI
 
-- Modèle Power BI connecté à la base, avec des mesures DAX qui recalculent les écarts. La vue `v_ecarts_mensuels` sert de référence pour vérifier les totaux.
+Fichier : `reporting_producteur.pbix`, avec le thème `theme.json`.
+
+![Page 1 : réel vs budget](rapport_p1.png)
+
+![Page 2 : prix captés et cannibalisation](rapport_p2.png)
+
+**Modèle**
+- Import depuis PostgreSQL : la vue horaire `v_revenus_horaires` et la table `budget`.
+- Une table `Calendrier` et une table `filiere` relient le réel et le budget, avec des relations simples à filtre unique.
+- Le budget n'est compté que sur les mois réalisés (janvier à août), pour comparer ce qui est comparable.
+
+**Mesures DAX clés**
+
+```DAX
+Prix capté   = DIVIDE ( [CA réel], [Volume réel] )
+Écart volume = SUMX ( CROSSJOIN ( VALUES ( Calendrier[Mois] ), VALUES ( filiere[filiere] ) ),
+                      ( [Volume réel] - [Volume budget] ) * [Prix budget] )
+Écart prix   = SUMX ( CROSSJOIN ( VALUES ( Calendrier[Mois] ), VALUES ( filiere[filiere] ) ),
+                      ( [Prix capté] - [Prix budget] ) * [Volume réel] )
+Facteur de capture = DIVIDE ( [Prix capté], [Prix moyen marché] )
+```
+
+Les écarts sont calculés **mois par mois et filière par filière**, puis additionnés. Calculés directement sur le total, ils mélangeraient les prix des deux filières et la décomposition ne tomberait plus juste.
+
+**Contrôle** : une page masquée vérifie que l'effet volume plus l'effet prix redonnent l'écart total, à 0 € près sur chaque mois. Les totaux Power BI sont identiques au centime à ceux de la requête SQL de référence `v_ecarts_mensuels`.
 
 ---
 
